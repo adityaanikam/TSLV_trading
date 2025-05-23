@@ -1,6 +1,5 @@
-streamlit==1.32.0
-pandas==2.2.1
-google-generativeai==0.3.2
-python-dotenv==1.0.1
-openai
-git+https://github.com/louisnw01/lightweight-charts-python.git
+streamlit
+pandas
+streamlit-lightweight-charts
+python-dotenv
+google-generativeai

@@ -4,3 +4,5 @@ lightweight-charts==1.0.0
 google-generativeai==0.3.2
 python-dotenv==1.0.1
 streamlit-lightweight-charts==1.0.6 
+git+https://github.com/louisnw01/lightweight-charts-python.git
+openai

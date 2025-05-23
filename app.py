@@ -4,17 +4,22 @@ import ast
 import os
 import time
 from dotenv import load_dotenv
-import google.generativeai as genai
-from lightweight_charts import Chart
 
-# --- Load environment variables and Gemini API ---
-load_dotenv()
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+# Only import Gemini if key is present
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY') or st.secrets.get("GOOGLE_API_KEY", None)
 if GOOGLE_API_KEY:
+    import google.generativeai as genai
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel('models/gemini-1.5-pro-latest')
+    # Use a robust model name (update if your quota only allows flash)
+    GEMINI_MODEL = 'models/gemini-1.5-pro-latest'
+    try:
+        model = genai.GenerativeModel(GEMINI_MODEL)
+    except Exception:
+        model = None
 else:
     model = None
+
+from streamlit_lightweight_charts import renderLightweightCharts
 
 st.set_page_config(page_title="TSLA Trading Analysis", layout="wide")
 
@@ -45,7 +50,7 @@ def load_data():
 
 df = load_data()
 
-# --- Data validation ---
+# Data validation
 invalid_rows = []
 for idx, row in df.iterrows():
     o, h, l, c = row['open'], row['high'], row['low'], row['close']
@@ -67,7 +72,7 @@ tab1, tab2 = st.tabs(["Trading Chart", "AI Analysis"])
 with tab1:
     st.title("TSLA Trading Analysis")
 
-    # --- Prepare candlestick data ---
+    # Prepare candlestick data
     candles = [
         {
             "time": row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S'),
@@ -79,75 +84,111 @@ with tab1:
         for _, row in df.iterrows()
     ]
 
-    # --- Prepare markers ---
+    # Prepare markers
     markers = []
     for idx, row in df.iterrows():
         t = row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S')
         if row['direction'] == 'LONG':
-            markers.append({"time": t, "position": "belowBar", "color": "green", "shape": "arrowUp", "text": "LONG"})
+            markers.append({
+                "time": t,
+                "position": "belowBar",
+                "color": "green",
+                "shape": "arrowUp",
+                "text": "LONG"
+            })
         elif row['direction'] == 'SHORT':
-            markers.append({"time": t, "position": "aboveBar", "color": "red", "shape": "arrowDown", "text": "SHORT"})
+            markers.append({
+                "time": t,
+                "position": "aboveBar",
+                "color": "red",
+                "shape": "arrowDown",
+                "text": "SHORT"
+            })
         else:
-            markers.append({"time": t, "position": "inBar", "color": "yellow", "shape": "circle", "text": "None"})
+            markers.append({
+                "time": t,
+                "position": "inBar",
+                "color": "yellow",
+                "shape": "circle",
+                "text": "None"
+            })
 
-    # --- Prepare support/resistance bands ---
-    support_area = [
-        {"time": row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S'), "value": min(row['Support']), "value2": max(row['Support'])}
-        for _, row in df.iterrows() if row['Support']
-    ]
-    resistance_area = [
-        {"time": row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S'), "value": min(row['Resistance']), "value2": max(row['Resistance'])}
-        for _, row in df.iterrows() if row['Resistance']
-    ]
+    # Prepare support/resistance bands as area series
+    support_area = []
+    resistance_area = []
+    for _, row in df.iterrows():
+        t = row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S')
+        if row['Support']:
+            support_area.append({
+                "time": t,
+                "value": min(row['Support']),
+                "value2": max(row['Support'])
+            })
+        if row['Resistance']:
+            resistance_area.append({
+                "time": t,
+                "value": min(row['Resistance']),
+                "value2": max(row['Resistance'])
+            })
 
+    # Chart config
+    chart_dict = {
+        "width": 900,
+        "height": 500,
+        "layout": {"background": {"type": "solid", "color": "#18181b"}, "textColor": "#fff"},
+        "grid": {"vertLines": {"color": "#444"}, "horzLines": {"color": "#444"}},
+        "rightPriceScale": {"borderColor": "#71649C"},
+        "timeScale": {"borderColor": "#71649C"},
+        "crosshair": {"mode": 0},
+        "series": [
+            {
+                "type": "Candlestick",
+                "data": candles,
+                "markers": markers,
+                "upColor": "#26a69a",
+                "downColor": "#ef5350",
+                "borderVisible": True,
+                "wickUpColor": "#26a69a",
+                "wickDownColor": "#ef5350"
+            },
+            {
+                "type": "Area",
+                "data": support_area,
+                "topColor": "rgba(0,255,0,0.2)",
+                "bottomColor": "rgba(0,255,0,0.2)",
+                "lineColor": "rgba(0,255,0,0.7)",
+                "lineWidth": 1,
+                "valueField": "value2",
+                "baseValueField": "value"
+            },
+            {
+                "type": "Area",
+                "data": resistance_area,
+                "topColor": "rgba(255,0,0,0.2)",
+                "bottomColor": "rgba(255,0,0,0.2)",
+                "lineColor": "rgba(255,0,0,0.7)",
+                "lineWidth": 1,
+                "valueField": "value2",
+                "baseValueField": "value"
+            }
+        ]
+    }
+
+    # Animation controls (BONUS)
     st.write("")
     play = st.button("Start Animation")
-
-    chart_container = st.empty()
     if play:
         for i in range(10, len(candles)+1):
-            chart = Chart(width=900, height=500)
-            chart.set(candles[:i])
-            chart.add_markers(markers[:i])
-            if support_area:
-                chart.add_area_series(
-                    data=[{"time": item["time"], "value": item["value2"]} for item in support_area[:i]],
-                    line_color="rgba(0,255,0,0.7)",
-                    top_color="rgba(0,255,0,0.2)",
-                    bottom_color="rgba(0,255,0,0.2)",
-                    line_width=1
-                )
-            if resistance_area:
-                chart.add_area_series(
-                    data=[{"time": item["time"], "value": item["value2"]} for item in resistance_area[:i]],
-                    line_color="rgba(255,0,0,0.7)",
-                    top_color="rgba(255,0,0,0.2)",
-                    bottom_color="rgba(255,0,0,0.2)",
-                    line_width=1
-                )
-            chart_container.write(chart)
+            chart_dict["series"][0]["data"] = candles[:i]
+            chart_dict["series"][0]["markers"] = markers[:i]
+            support_count = sum(1 for j in range(i) if df.iloc[j]['Support'])
+            resistance_count = sum(1 for j in range(i) if df.iloc[j]['Resistance'])
+            chart_dict["series"][1]["data"] = support_area[:support_count]
+            chart_dict["series"][2]["data"] = resistance_area[:resistance_count]
+            renderLightweightCharts([chart_dict], key=f"chart_anim_{i}")
             time.sleep(0.1)
     else:
-        chart = Chart(width=900, height=500)
-        chart.set(candles)
-        chart.add_markers(markers)
-        if support_area:
-            chart.add_area_series(
-                data=[{"time": item["time"], "value": item["value2"]} for item in support_area],
-                line_color="rgba(0,255,0,0.7)",
-                top_color="rgba(0,255,0,0.2)",
-                bottom_color="rgba(0,255,0,0.2)",
-                line_width=1
-            )
-        if resistance_area:
-            chart.add_area_series(
-                data=[{"time": item["time"], "value": item["value2"]} for item in resistance_area],
-                line_color="rgba(255,0,0,0.7)",
-                top_color="rgba(255,0,0,0.2)",
-                bottom_color="rgba(255,0,0,0.2)",
-                line_width=1
-            )
-        chart_container.write(chart)
+        renderLightweightCharts([chart_dict], key="chart_full")
 
 with tab2:
     st.title("AI Analysis of TSLA Data")
@@ -168,7 +209,7 @@ with tab2:
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-
+        # Enhanced data context
         context = {
             "date_range": f"{df['timestamp'].min().strftime('%Y-%m-%d')} to {df['timestamp'].max().strftime('%Y-%m-%d')}",
             "price_range": f"{df['low'].min():.2f} to {df['high'].max():.2f}",
@@ -194,7 +235,6 @@ with tab2:
             },
             "sample_data": df.head(3).to_dict(orient='records')
         }
-
         full_context = f"""
         You are analyzing TSLA stock data with the following characteristics:
 
@@ -223,7 +263,6 @@ with tab2:
 
         User Question: {prompt}
         """
-
         if model:
             try:
                 response = model.generate_content(full_context)
@@ -231,7 +270,12 @@ with tab2:
                 with st.chat_message("assistant"):
                     st.markdown(response.text)
             except Exception as e:
-                st.error(f"Error generating response: {str(e)}")
+                if "429" in str(e):
+                    st.error("You have exceeded your Gemini API quota. Please wait and try again later, or check your Google Cloud billing and quota settings.")
+                elif "not found" in str(e) or "unsupported" in str(e):
+                    st.error("The selected Gemini model is not available for your API key. Please check your model name and Google Cloud project.")
+                else:
+                    st.error(f"Error generating response: {str(e)}")
         else:
             st.error("Gemini API key not found or not configured.")
 

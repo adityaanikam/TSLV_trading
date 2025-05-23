@@ -127,47 +127,44 @@ with tab1:
             })
 
     # --- Chart config ---
-    chart_dict = {
-        "width": 900,
-        "height": 500,
-        "layout": {"background": {"type": "solid", "color": "#18181b"}, "textColor": "#fff"},
-        "grid": {"vertLines": {"color": "#444"}, "horzLines": {"color": "#444"}},
-        "rightPriceScale": {"borderColor": "#71649C"},
-        "timeScale": {"borderColor": "#71649C"},
-        "crosshair": {"mode": 0},
-        "series": [
-            {
-                "type": "Candlestick",
-                "data": candles,
-                "markers": markers,
-                "upColor": "#26a69a",
-                "downColor": "#ef5350",
-                "borderVisible": True,
-                "wickUpColor": "#26a69a",
-                "wickDownColor": "#ef5350"
-            },
-            {
-                "type": "Area",
-                "data": support_area,
-                "topColor": "rgba(0,255,0,0.2)",
-                "bottomColor": "rgba(0,255,0,0.2)",
-                "lineColor": "rgba(0,255,0,0.7)",
-                "lineWidth": 1,
-                "valueField": "value2",
-                "baseValueField": "value"
-            },
-            {
-                "type": "Area",
-                "data": resistance_area,
-                "topColor": "rgba(255,0,0,0.2)",
-                "bottomColor": "rgba(255,0,0,0.2)",
-                "lineColor": "rgba(255,0,0,0.7)",
-                "lineWidth": 1,
-                "valueField": "value2",
-                "baseValueField": "value"
-            }
-        ]
-    }
+# --- Render chart using lightweight_charts ---
+# from lightweight_charts import Chart
+
+chart = Chart(width=900, height=500)
+
+# Candlestick
+chart.set(candles, type="Candlestick", markers=markers)
+
+# Support band (green)
+if support_area:
+    for support in support_area:
+        chart.add_area_series(
+            data=[
+                {"time": support["time"], "value": support["value"]},
+                {"time": support["time"], "value": support["value2"]}
+            ],
+            top_color="rgba(0,255,0,0.2)",
+            bottom_color="rgba(0,255,0,0.2)",
+            line_color="rgba(0,255,0,0.7)",
+            line_width=1
+        )
+
+# Resistance band (red)
+if resistance_area:
+    for resistance in resistance_area:
+        chart.add_area_series(
+            data=[
+                {"time": resistance["time"], "value": resistance["value"]},
+                {"time": resistance["time"], "value": resistance["value2"]}
+            ],
+            top_color="rgba(255,0,0,0.2)",
+            bottom_color="rgba(255,0,0,0.2)",
+            line_color="rgba(255,0,0,0.7)",
+            line_width=1
+        )
+
+st.write(chart)
+
 
     # --- Animation controls (BONUS) ---
     st.write("")

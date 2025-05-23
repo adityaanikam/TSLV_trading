@@ -84,103 +84,70 @@ with tab1:
     for idx, row in df.iterrows():
         t = row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S')
         if row['direction'] == 'LONG':
-            markers.append({
-                "time": t,
-                "position": "belowBar",
-                "color": "green",
-                "shape": "arrowUp",
-                "text": "LONG"
-            })
+            markers.append({"time": t, "position": "belowBar", "color": "green", "shape": "arrowUp", "text": "LONG"})
         elif row['direction'] == 'SHORT':
-            markers.append({
-                "time": t,
-                "position": "aboveBar",
-                "color": "red",
-                "shape": "arrowDown",
-                "text": "SHORT"
-            })
+            markers.append({"time": t, "position": "aboveBar", "color": "red", "shape": "arrowDown", "text": "SHORT"})
         else:
-            markers.append({
-                "time": t,
-                "position": "inBar",
-                "color": "yellow",
-                "shape": "circle",
-                "text": "None"
-            })
+            markers.append({"time": t, "position": "inBar", "color": "yellow", "shape": "circle", "text": "None"})
 
-    # --- Prepare support/resistance bands as area series ---
-    support_area = []
-    resistance_area = []
-    for _, row in df.iterrows():
-        t = row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S')
-        if row['Support']:
-            support_area.append({
-                "time": t,
-                "value": min(row['Support']),
-                "value2": max(row['Support'])
-            })
-        if row['Resistance']:
-            resistance_area.append({
-                "time": t,
-                "value": min(row['Resistance']),
-                "value2": max(row['Resistance'])
-            })
+    # --- Prepare support/resistance bands ---
+    support_area = [
+        {"time": row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S'), "value": min(row['Support']), "value2": max(row['Support'])}
+        for _, row in df.iterrows() if row['Support']
+    ]
+    resistance_area = [
+        {"time": row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S'), "value": min(row['Resistance']), "value2": max(row['Resistance'])}
+        for _, row in df.iterrows() if row['Resistance']
+    ]
 
-    # --- Chart config ---
-# --- Render chart using lightweight_charts ---
-# from lightweight_charts import Chart
-
-chart = Chart(width=900, height=500)
-
-# Candlestick
-chart.set(candles, type="Candlestick", markers=markers)
-
-# Support band (green)
-if support_area:
-    for support in support_area:
-        chart.add_area_series(
-            data=[
-                {"time": support["time"], "value": support["value"]},
-                {"time": support["time"], "value": support["value2"]}
-            ],
-            top_color="rgba(0,255,0,0.2)",
-            bottom_color="rgba(0,255,0,0.2)",
-            line_color="rgba(0,255,0,0.7)",
-            line_width=1
-        )
-
-# Resistance band (red)
-if resistance_area:
-    for resistance in resistance_area:
-        chart.add_area_series(
-            data=[
-                {"time": resistance["time"], "value": resistance["value"]},
-                {"time": resistance["time"], "value": resistance["value2"]}
-            ],
-            top_color="rgba(255,0,0,0.2)",
-            bottom_color="rgba(255,0,0,0.2)",
-            line_color="rgba(255,0,0,0.7)",
-            line_width=1
-        )
-
-    # st.write(chart)
-
-
-    # --- Animation controls (BONUS) ---
     st.write("")
     play = st.button("Start Animation")
+
+    chart_container = st.empty()
     if play:
         for i in range(10, len(candles)+1):
-            chart_dict["series"][0]["data"] = candles[:i]
-            chart_dict["series"][0]["markers"] = markers[:i]
-            support_count = sum(1 for j in range(i) if df.iloc[j]['Support'])
-            resistance_count = sum(1 for j in range(i) if df.iloc[j]['Resistance'])
-            chart_dict["series"][1]["data"] = support_area[:support_count]
-            chart_dict["series"][2]["data"] = resistance_area[:resistance_count]
-            renderLightweightCharts([chart_dict], key=f"chart_anim_{i}")
+            chart = Chart(width=900, height=500)
+            chart.set(candles[:i])
+            chart.add_markers(markers[:i])
+            if support_area:
+                chart.add_area_series(
+                    data=[{"time": item["time"], "value": item["value2"]} for item in support_area[:i]],
+                    line_color="rgba(0,255,0,0.7)",
+                    top_color="rgba(0,255,0,0.2)",
+                    bottom_color="rgba(0,255,0,0.2)",
+                    line_width=1
+                )
+            if resistance_area:
+                chart.add_area_series(
+                    data=[{"time": item["time"], "value": item["value2"]} for item in resistance_area[:i]],
+                    line_color="rgba(255,0,0,0.7)",
+                    top_color="rgba(255,0,0,0.2)",
+                    bottom_color="rgba(255,0,0,0.2)",
+                    line_width=1
+                )
+            chart_container.write(chart)
             time.sleep(0.1)
     else:
-        renderLightweightCharts([chart_dict], key="chart_full")
+        chart = Chart(width=900, height=500)
+        chart.set(candles)
+        chart.add_markers(markers)
+        if support_area:
+            chart.add_area_series(
+                data=[{"time": item["time"], "value": item["value2"]} for item in support_area],
+                line_color="rgba(0,255,0,0.7)",
+                top_color="rgba(0,255,0,0.2)",
+                bottom_color="rgba(0,255,0,0.2)",
+                line_width=1
+            )
+        if resistance_area:
+            chart.add_area_series(
+                data=[{"time": item["time"], "value": item["value2"]} for item in resistance_area],
+                line_color="rgba(255,0,0,0.7)",
+                top_color="rgba(255,0,0,0.2)",
+                bottom_color="rgba(255,0,0,0.2)",
+                line_width=1
+            )
+        chart_container.write(chart)
 
 with tab2:
     st.title("AI Analysis of TSLA Data")
@@ -201,7 +168,7 @@ with tab2:
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-        # --- Enhanced data context ---
+
         context = {
             "date_range": f"{df['timestamp'].min().strftime('%Y-%m-%d')} to {df['timestamp'].max().strftime('%Y-%m-%d')}",
             "price_range": f"{df['low'].min():.2f} to {df['high'].max():.2f}",
@@ -227,6 +194,7 @@ with tab2:
             },
             "sample_data": df.head(3).to_dict(orient='records')
         }
+
         full_context = f"""
         You are analyzing TSLA stock data with the following characteristics:
 
@@ -255,6 +223,7 @@ with tab2:
 
         User Question: {prompt}
         """
+
         if model:
             try:
                 response = model.generate_content(full_context)
@@ -265,3 +234,4 @@ with tab2:
                 st.error(f"Error generating response: {str(e)}")
         else:
             st.error("Gemini API key not found or not configured.")
+

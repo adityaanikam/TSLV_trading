@@ -5,7 +5,7 @@ import os
 import time
 from dotenv import load_dotenv
 import google.generativeai as genai
-from streamlit_lightweight_charts import renderLightweightCharts
+from lightweight_charts import Chart
 
 # --- Load environment variables and Gemini API ---
 load_dotenv()

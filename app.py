@@ -163,7 +163,7 @@ if resistance_area:
             line_width=1
         )
 
-st.write(chart)
+    # st.write(chart)
 
 
     # --- Animation controls (BONUS) ---

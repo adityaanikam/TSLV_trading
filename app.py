@@ -10,7 +10,6 @@ GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY') or st.secrets.get("GOOGLE_API_KEY",
 if GOOGLE_API_KEY:
     import google.generativeai as genai
     genai.configure(api_key=GOOGLE_API_KEY)
-    # Use a robust model name (update if your quota only allows flash)
     GEMINI_MODEL = 'models/gemini-1.5-pro-latest'
     try:
         model = genai.GenerativeModel(GEMINI_MODEL)
@@ -76,15 +75,15 @@ with tab1:
     candles = [
         {
             "time": row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S'),
-            "open": row['open'],
-            "high": row['high'],
-            "low": row['low'],
-            "close": row['close']
+            "open": float(row['open']),
+            "high": float(row['high']),
+            "low": float(row['low']),
+            "close": float(row['close'])
         }
         for _, row in df.iterrows()
     ]
 
-    # Prepare markers
+    # Prepare markers with improved styling
     markers = []
     for idx, row in df.iterrows():
         t = row['timestamp'].strftime('%Y-%m-%dT%H:%M:%S')
@@ -92,28 +91,22 @@ with tab1:
             markers.append({
                 "time": t,
                 "position": "belowBar",
-                "color": "green",
+                "color": "#26a69a",
                 "shape": "arrowUp",
-                "text": "LONG"
+                "text": "LONG",
+                "size": 2
             })
         elif row['direction'] == 'SHORT':
             markers.append({
                 "time": t,
                 "position": "aboveBar",
-                "color": "red",
+                "color": "#ef5350",
                 "shape": "arrowDown",
-                "text": "SHORT"
-            })
-        else:
-            markers.append({
-                "time": t,
-                "position": "inBar",
-                "color": "yellow",
-                "shape": "circle",
-                "text": "None"
+                "text": "SHORT",
+                "size": 2
             })
 
-    # Prepare support/resistance bands as area series
+    # Prepare support/resistance bands with improved styling
     support_area = []
     resistance_area = []
     for _, row in df.iterrows():
@@ -131,15 +124,47 @@ with tab1:
                 "value2": max(row['Resistance'])
             })
 
-    # Chart config
+    # Enhanced chart config with TradingView-like styling
     chart_dict = {
         "width": 900,
         "height": 500,
-        "layout": {"background": {"type": "solid", "color": "#18181b"}, "textColor": "#fff"},
-        "grid": {"vertLines": {"color": "#444"}, "horzLines": {"color": "#444"}},
-        "rightPriceScale": {"borderColor": "#71649C"},
-        "timeScale": {"borderColor": "#71649C"},
-        "crosshair": {"mode": 0},
+        "layout": {
+            "background": {"type": "solid", "color": "#131722"},
+            "textColor": "#d1d4dc",
+            "fontSize": 12,
+            "fontFamily": "Roboto, sans-serif"
+        },
+        "grid": {
+            "vertLines": {"color": "rgba(42, 46, 57, 0.5)"},
+            "horzLines": {"color": "rgba(42, 46, 57, 0.5)"}
+        },
+        "rightPriceScale": {
+            "borderColor": "rgba(197, 203, 206, 0.8)",
+            "scaleMargins": {
+                "top": 0.1,
+                "bottom": 0.1
+            }
+        },
+        "timeScale": {
+            "borderColor": "rgba(197, 203, 206, 0.8)",
+            "timeVisible": True,
+            "secondsVisible": False
+        },
+        "crosshair": {
+            "mode": 1,
+            "vertLine": {
+                "color": "#758696",
+                "width": 1,
+                "style": 1,
+                "labelBackgroundColor": "#131722"
+            },
+            "horzLine": {
+                "color": "#758696",
+                "width": 1,
+                "style": 1,
+                "labelBackgroundColor": "#131722"
+            }
+        },
         "series": [
             {
                 "type": "Candlestick",
@@ -149,32 +174,44 @@ with tab1:
                 "downColor": "#ef5350",
                 "borderVisible": True,
                 "wickUpColor": "#26a69a",
-                "wickDownColor": "#ef5350"
+                "wickDownColor": "#ef5350",
+                "borderUpColor": "#26a69a",
+                "borderDownColor": "#ef5350"
             },
             {
                 "type": "Area",
                 "data": support_area,
-                "topColor": "rgba(0,255,0,0.2)",
-                "bottomColor": "rgba(0,255,0,0.2)",
-                "lineColor": "rgba(0,255,0,0.7)",
+                "topColor": "rgba(38, 166, 154, 0.1)",
+                "bottomColor": "rgba(38, 166, 154, 0.1)",
+                "lineColor": "rgba(38, 166, 154, 0.7)",
                 "lineWidth": 1,
                 "valueField": "value2",
-                "baseValueField": "value"
+                "baseValueField": "value",
+                "priceFormat": {
+                    "type": "price",
+                    "precision": 2,
+                    "minMove": 0.01
+                }
             },
             {
                 "type": "Area",
                 "data": resistance_area,
-                "topColor": "rgba(255,0,0,0.2)",
-                "bottomColor": "rgba(255,0,0,0.2)",
-                "lineColor": "rgba(255,0,0,0.7)",
+                "topColor": "rgba(239, 83, 80, 0.1)",
+                "bottomColor": "rgba(239, 83, 80, 0.1)",
+                "lineColor": "rgba(239, 83, 80, 0.7)",
                 "lineWidth": 1,
                 "valueField": "value2",
-                "baseValueField": "value"
+                "baseValueField": "value",
+                "priceFormat": {
+                    "type": "price",
+                    "precision": 2,
+                    "minMove": 0.01
+                }
             }
         ]
     }
 
-    # Animation controls (BONUS)
+    # Animation controls
     st.write("")
     play = st.button("Start Animation")
     if play:
@@ -248,21 +285,25 @@ with tab2:
 
         Support Levels:
         - Average: {context['support_stats']['average']:.2f}
-        - Maximum: {context['support_stats']['max']:.2f}
-        - Minimum: {context['support_stats']['min']:.2f}
+        - Max: {context['support_stats']['max']:.2f}
+        - Min: {context['support_stats']['min']:.2f}
 
         Resistance Levels:
         - Average: {context['resistance_stats']['average']:.2f}
-        - Maximum: {context['resistance_stats']['max']:.2f}
-        - Minimum: {context['resistance_stats']['min']:.2f}
+        - Max: {context['resistance_stats']['max']:.2f}
+        - Min: {context['resistance_stats']['min']:.2f}
 
         Volume Statistics:
         - Average: {context['volume_stats']['average']:.2f}
-        - Maximum: {context['volume_stats']['max']:.2f}
-        - Minimum: {context['volume_stats']['min']:.2f}
+        - Max: {context['volume_stats']['max']:.2f}
+        - Min: {context['volume_stats']['min']:.2f}
 
-        User Question: {prompt}
+        Sample Data:
+        {context['sample_data']}
+
+        Please analyze this data and answer the user's question: {prompt}
         """
+
         if model:
             try:
                 response = model.generate_content(full_context)
@@ -270,12 +311,7 @@ with tab2:
                 with st.chat_message("assistant"):
                     st.markdown(response.text)
             except Exception as e:
-                if "429" in str(e):
-                    st.error("You have exceeded your Gemini API quota. Please wait and try again later, or check your Google Cloud billing and quota settings.")
-                elif "not found" in str(e) or "unsupported" in str(e):
-                    st.error("The selected Gemini model is not available for your API key. Please check your model name and Google Cloud project.")
-                else:
-                    st.error(f"Error generating response: {str(e)}")
+                st.error(f"Error generating response: {str(e)}")
         else:
-            st.error("Gemini API key not found or not configured.")
+            st.warning("Please set your GOOGLE_API_KEY to enable AI analysis.")
 
